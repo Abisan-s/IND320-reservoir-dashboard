@@ -1,0 +1,5 @@
+# will be updated later when i use more packages!
+pandas
+matplotlib
+streamlit
+jupyter
