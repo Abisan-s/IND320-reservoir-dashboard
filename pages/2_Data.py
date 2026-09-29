@@ -69,13 +69,13 @@ table_rows = []
 
 for column in df.columns:
 
-    # Numerical columns can be shown as small line charts
+    # numerical columns can be shown as small line charts
     if pd.api.types.is_numeric_dtype(df[column]):
         values = first_month[column].tolist()
 
     else:
-        # Text and date columns are still included,
-        # but a line chart is not meaningful for these columns
+        # text and date columns are still included,
+        # but a line chart is not meaningful and not needed for these columns
         values = None
 
     table_rows.append({

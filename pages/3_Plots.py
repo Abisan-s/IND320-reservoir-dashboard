@@ -142,7 +142,6 @@ if selected_column == "All columns":
 
     ax.legend()
 
-
 else:
 
     # this part plots only the variables selected by the user
