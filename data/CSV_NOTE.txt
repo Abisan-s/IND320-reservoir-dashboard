@@ -1,0 +1,2 @@
+I havent deleted the csv file yet, but part 2 onnly runs on API-data and 
+not the CSV file to be clear
