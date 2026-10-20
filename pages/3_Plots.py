@@ -44,7 +44,7 @@ def load_data():
 df = load_data()
 
 
-# numerical variables used in the plots
+#numerical variables used in the plots
 plot_columns = [
     "fill_level",
     "capacity_TWh",
