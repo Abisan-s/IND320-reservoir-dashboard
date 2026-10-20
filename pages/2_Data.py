@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import requests
 
 
 st.title("Reservoir data")
@@ -8,9 +9,13 @@ st.title("Reservoir data")
 # cache the data so the csv-fil is not read every time, saves time
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/reservoirs.csv")
+    url = "https://biapi.nve.no/magasinstatistikk/api/Magasinstatistikk/HentOffentligData"
 
-    # copying the name changes from the notebook. norwegian => english
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+
+    df = pd.DataFrame(response.json())
+    #renaming the names to english
     df = df.rename(columns={
         "dato_Id": "date",
         "omrType": "area_type",
@@ -25,10 +30,7 @@ def load_data():
         "endring_fyllingsgrad": "change_in_fill_level"
     })
 
-    # converting date column from text to datetime 
     df["date"] = pd.to_datetime(df["date"])
-
-    # chronologically sorting
     df = df.sort_values("date")
 
     return df
@@ -45,37 +47,37 @@ st.write(
 )
 
 
-# finding the earliest date in the dataset so i can use it
+#finding the earliest date in the dataset so i can use it
 first_date = df["date"].min()
 
-# defining the end of the first month to know where to end it
+#defining the end of the first month to know where to end it
 end_first_month = first_date + pd.DateOffset(months=1)
 
-# selecting only rows from the first month 
+#selecting only rows from the first month 
 first_month = df[
     (df["date"] >= first_date) &
     (df["date"] < end_first_month)
 ]
 
 
-# this part shows which period is being used
+#this part shows which period is being used
 st.write(
     f"First month: {first_date.date()} to {end_first_month.date()}"
 )
 
 
-# this part creates one row for each column from the dataset
+#this part creates one row for each column from the dataset
 table_rows = []
 
 for column in df.columns:
 
-    # numerical columns can be shown as small line charts
+    #numerical columns can be shown as small line charts
     if pd.api.types.is_numeric_dtype(df[column]):
         values = first_month[column].tolist()
 
     else:
-        # text and date columns are still included,
-        # but a line chart is not meaningful and not needed for these columns
+        #text and date columns are still included,
+        #but a line chart is not meaningful and not needed for these columns
         values = None
 
     table_rows.append({
@@ -85,11 +87,11 @@ for column in df.columns:
     })
 
 
-# converting the rows into a dataframe using dataframe
+#converting the rows into a dataframe using dataframe
 summary_table = pd.DataFrame(table_rows)
 
 
-# displaying the table
+#displaying the table
 st.dataframe(
     summary_table,
     column_config={

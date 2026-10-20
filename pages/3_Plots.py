@@ -1,16 +1,23 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import requests
 
 st.title("Reservoir plots")
 
 
-# cache the data so the csv-fil is not read every time, saves time
+#cache the data so the API is not called every time the page updates
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/reservoirs.csv")
 
-    # copying the name changes from the notebook. norwegian => english
+    url = "https://biapi.nve.no/magasinstatistikk/api/Magasinstatistikk/HentOffentligData"
+
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+
+    df = pd.DataFrame(response.json())
+
+    #norwegian column names => english
     df = df.rename(columns={
         "dato_Id": "date",
         "omrType": "area_type",
@@ -25,17 +32,19 @@ def load_data():
         "endring_fyllingsgrad": "change_in_fill_level"
     })
 
-    # converting date column from text to datetime 
+    #converting date column to datetime
     df["date"] = pd.to_datetime(df["date"])
 
-    # chronologically sorting
+    #sorting by date
     df = df.sort_values("date")
 
     return df
 
+
 df = load_data()
 
-# the reservoir variables (numerical) used in the plots
+
+# numerical variables used in the plots
 plot_columns = [
     "fill_level",
     "capacity_TWh",
@@ -44,13 +53,26 @@ plot_columns = [
     "change_in_fill_level"
 ]
 
+
 st.write(
-    "Use the options below to select a reservoir area, "
-    "a variable and timeperiode."
+    "Select an area type, reservoir area, variable and time period."
 )
 
-# this is the area selection, where the user can select which area they wanna see
-areas = sorted(df["area_number"].unique())
+
+#select the type of reservoir area
+selected_type = st.radio(
+    "Select area type",
+    ["NO", "EL", "VASS"],
+    horizontal=True
+)
+
+
+#only keep data belonging to the selected area type
+type_data = df[df["area_type"] == selected_type].copy()
+
+
+#find the available area numbers for the selected type
+areas = sorted(type_data["area_number"].unique())
 
 selected_area = st.selectbox(
     "Select reservoir area",
@@ -58,10 +80,13 @@ selected_area = st.selectbox(
 )
 
 
-# this is important. here i keep only data from the selected area so that only that data occur
-area_data = df[df["area_number"] == selected_area].copy()
+#keep only the selected area
+area_data = type_data[
+    type_data["area_number"] == selected_area
+].copy()
 
 
+#variable selection
 column_options = ["All columns"] + plot_columns
 
 selected_column = st.selectbox(
@@ -70,19 +95,15 @@ selected_column = st.selectbox(
 )
 
 
-# here the user can select what month they want to see
-
-# this part converts every date into a year/month value
+#convert dates into year and month values
 area_data["month"] = area_data["date"].dt.to_period("M")
 
-# this part finds all the available months for the selected area 
 months = sorted(area_data["month"].unique())
 
-# converts the periods to strings (so the streamlit slider can read it)
 month_labels = [str(month) for month in months]
 
 
-# makeing a default selection as the first month in the dataset
+#default is the first available month
 selected_months = st.select_slider(
     "Select month range",
     options=month_labels,
@@ -90,74 +111,81 @@ selected_months = st.select_slider(
 )
 
 
-# this part converts the selected slider values back into monthly periods
+#convert selected values back to periods
 start_month = pd.Period(selected_months[0], freq="M")
 end_month = pd.Period(selected_months[1], freq="M")
 
 
-# important! this part filters the dataset according to the selected moth
+#filter data according to the selected period
 filtered_data = area_data[
     (area_data["month"] >= start_month) &
     (area_data["month"] <= end_month)
 ].copy()
 
-# here we have the diffrent plots
 
+#this part is creating the plot
 fig, ax = plt.subplots(figsize=(12, 6))
+
 
 if selected_column == "All columns":
 
-    # this part copies the selected numerical columns
     normalized_data = filtered_data[plot_columns].copy()
 
-    # normalizing every column between 0 and 1 so that variables with 
-    # different scales are comparable.
+    columns_to_plot = []
+
+    # normalize variables between 0 and 1
     for column in plot_columns:
+
         minimum = normalized_data[column].min()
         maximum = normalized_data[column].max()
 
+        # only include variables that change in this period
         if maximum != minimum:
+
             normalized_data[column] = (
                 normalized_data[column] - minimum
             ) / (
                 maximum - minimum
             )
-        else:
-            # if values are identical, use 0
-            normalized_data[column] = 0
 
-    # plotting all normalized columns
-    for column in plot_columns:
+            columns_to_plot.append(column)
+
+
+    for column in columns_to_plot:
+
         ax.plot(
             filtered_data["date"],
             normalized_data[column],
             label=column.replace("_", " ").title()
         )
 
+
     ax.set_title(
-        f"Normalized Reservoir Variables - Area {selected_area}"
+        f"Normalized Reservoir Variables - "
+        f"{selected_type} Area {selected_area}"
     )
 
-    ax.set_ylabel("Normalized value")
-
+    ax.set_ylabel("Normalized value (0-1)")
+    ax.set_ylim(0, 1.05)
     ax.legend()
+
 
 else:
 
-    # this part plots only the variables selected by the user
     ax.plot(
         filtered_data["date"],
         filtered_data[selected_column]
     )
 
     ax.set_title(
-        f"{selected_column.replace('_', ' ').title()} "
-        f"- Area {selected_area}"
+        f"{selected_column.replace('_', ' ').title()} - "
+        f"{selected_type} Area {selected_area}"
     )
 
     ax.set_ylabel(
         selected_column.replace("_", " ").title()
     )
+
 
 ax.set_xlabel("Date")
 ax.grid(True)

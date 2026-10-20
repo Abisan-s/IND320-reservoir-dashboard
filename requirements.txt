@@ -3,3 +3,8 @@ pandas
 matplotlib
 streamlit
 jupyter
+requests
+pymongo
+python-dotenv
+cassandra-driver
+pyspark==3.5.1
