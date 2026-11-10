@@ -9,3 +9,9 @@ python-dotenv
 cassandra-driver
 pyspark==3.5.1
 setuptools
+geopandas
+pyogrio
+shapely
+scipy
+scikit-learn
+statsmodels 
